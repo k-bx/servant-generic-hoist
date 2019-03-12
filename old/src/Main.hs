@@ -5,7 +5,14 @@
 
 module Main where
 
+import Data.Swagger
+
 import Control.Monad.Trans.Reader
+import Data.Swagger
+import Data.Swagger.Declare (Declare)
+import Data.Swagger.Declare (Declare)
+import Data.Swagger.Internal.Schema (named, plain, timeSchema, unnamed)
+import Data.Swagger.Internal.Schema (named, plain, timeSchema, unnamed)
 import Data.Text (Text)
 import GHC.Generics
 import Network.Wai (Request)
@@ -22,6 +29,8 @@ import Servant.Server.Experimental.Auth
   , mkAuthHandler
   )
 import Servant.Server.Experimental.Auth (AuthHandler)
+import Servant.Swagger
+import Servant.Swagger.UI
 import Servant.Utils.Enter
 
 data Env =
@@ -29,7 +38,8 @@ data Env =
 
 type AppM = ReaderT Env Servant.Handler
 
-type API = ToServant (AdServerAPI AsApi) :<|> ToServant (StaticAPI AsApi)
+type API
+   = ToServant (AdServerAPI AsApi) :<|> ToServant (StaticAPI AsApi) :<|> SwaggerSchemaUI "swagger-ui" "swagger.json"
 
 data AdServerAPI route = AdServerAPI
   { _foo :: route :- "foo" :> Get '[ PlainText] Text
@@ -64,7 +74,15 @@ srvStatic :: StaticAPI AsServer
 srvStatic = StaticAPI {static = serveDirectoryWebApp "."}
 
 completeServer :: Env -> Server API
-completeServer env = handlerServer env :<|> toServant srvStatic
+completeServer env =
+  handlerServer env :<|> toServant srvStatic :<|>
+  swaggerSchemaUIServer swaggerDoc
+
+swaggerDoc :: Swagger
+swaggerDoc = toSwagger publicApi
+
+publicApi :: Proxy (ToServant (AdServerAPI AsApi))
+publicApi = Proxy
 
 handlerServer :: Env -> ToServant (AdServerAPI AsServer)
 handlerServer env = enter appToHandler (toServant server)

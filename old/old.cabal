@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: b6af9f10b54a31d88bf5635b23993d3b1df2b785a443db8f6d8c92932db815cb
+-- hash: 3962f5daad79bf9161f42ef673be0ab69124f26fd7237f3c00c9b4474e3b84c5
 
 name:           old
 version:        0.1.0.0
@@ -30,6 +30,9 @@ executable old
     , servant
     , servant-generic
     , servant-server
+    , servant-swagger
+    , servant-swagger-ui
+    , swagger2
     , text
     , transformers
     , wai

@@ -20,6 +20,9 @@ dependencies:
   - text
   - wai
   - warp
+  - servant-swagger
+  - swagger2
+  - servant-swagger-ui
 
 executables:
   old:
