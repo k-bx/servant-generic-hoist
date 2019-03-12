@@ -1,0 +1,6 @@
+resolver: lts-12.26
+packages:
+- .
+extra-deps:
+- wai-routes-0.10.1
+allow-newer: true
