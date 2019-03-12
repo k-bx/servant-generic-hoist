@@ -1,0 +1,6 @@
+resolver: nightly-2018-06-06
+packages:
+- .
+extra-deps:
+- servant-generic-0.1.0.1
+allow-newer: true
