@@ -47,6 +47,8 @@ data Env =
 
 type AppM = ReaderT Env Servant.Handler
 
+-- Full api type, combines few generic-based APIs, one swagger-ui schema and some "raw" stuff
+
 type API
    = ToServant (AdServerAPI AsApi) :<|> ToServant (StaticAPI AsApi) :<|> SwaggerSchemaUI "swagger-ui" "swagger.json" :<|> Raw
 
@@ -69,6 +71,8 @@ nt s x = runReaderT x s
 
 type UserId = Int
 
+-- context
+
 auth :: Context (AuthHandler Request UserId ': '[])
 auth = (mkAuthHandler (const (pure 1))) :. EmptyContext
 
@@ -85,6 +89,8 @@ main = do
 srvStatic :: StaticAPI AsServer
 srvStatic = StaticAPI {static = serveDirectoryWebApp "."}
 
+-- this thing is the most problematic to translate into new servant
+
 completeServer :: Env -> Manager -> Server API
 completeServer env mgr =
   handlerServer env :<|> toServant srvStatic :<|>
@@ -96,6 +102,8 @@ swaggerDoc = toSwagger publicApi
 
 publicApi :: Proxy (ToServant (AdServerAPI AsApi))
 publicApi = Proxy
+
+-- enter is deprecated
 
 handlerServer :: Env -> ToServant (AdServerAPI AsServer)
 handlerServer env = enter appToHandler (toServant server)
