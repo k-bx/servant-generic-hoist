@@ -22,7 +22,10 @@ dependencies:
   - warp
   - servant-swagger
   - swagger2
+  - wai-routes
   - servant-swagger-ui
+  - http-client
+  - wreq
 
 executables:
   old:

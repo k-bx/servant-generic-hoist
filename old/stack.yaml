@@ -3,4 +3,5 @@ packages:
 - .
 extra-deps:
 - servant-generic-0.1.0.1
+- wai-routes-0.10.1
 allow-newer: true
