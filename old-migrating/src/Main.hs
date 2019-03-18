@@ -14,8 +14,6 @@ import Data.Swagger
 import Control.Monad.Trans.Reader
 import Data.Swagger
 import Data.Swagger.Declare (Declare)
-import Data.Swagger.Declare (Declare)
-import Data.Swagger.Internal.Schema (named, plain, timeSchema, unnamed)
 import Data.Swagger.Internal.Schema (named, plain, timeSchema, unnamed)
 import Data.Text (Text)
 import GHC.Generics
@@ -23,13 +21,10 @@ import Network.HTTP.Client (Manager)
 import qualified Network.HTTP.Client as HTTPClient
 import Network.Wai (Request, pathInfo, responseLBS)
 import qualified Network.Wai.Handler.Warp as W
-import qualified Network.Wai.Handler.Warp as Warp
 import qualified Network.Wai.Handler.Warp.Internal as W
 import Network.Wreq (withManager)
-import Servant.API.Generic
-import Servant.Server.Generic
 import Servant
---import Servant.Generic
+import Servant.API.Generic
 import Servant.Server
 import Servant.Server.Experimental.Auth
   ( AuthHandler
@@ -37,9 +32,9 @@ import Servant.Server.Experimental.Auth
   , mkAuthHandler
   )
 import Servant.Server.Experimental.Auth (AuthHandler)
+import Servant.Server.Generic
 import Servant.Swagger
 import Servant.Swagger.UI
-import Servant.Utils.Enter
 import Wai.Routes (mkRoute)
 import qualified Wai.Routes as WaiRoutes
 
@@ -49,6 +44,7 @@ data Env =
 type AppM = ReaderT Env Servant.Handler
 
 -- Full api type, combines few generic-based APIs, one swagger-ui schema and some "raw" stuff
+type Swag = SwaggerSchemaUI "swagger-ui" "swagger.json"
 
 type API
    = ToServantApi AdServerAPI :<|> ToServantApi StaticAPI :<|> SwaggerSchemaUI "swagger-ui" "swagger.json" :<|> Raw
@@ -73,7 +69,6 @@ nt s x = runReaderT x s
 type UserId = Int
 
 -- context
-
 auth :: Context (AuthHandler Request UserId ': '[])
 auth = (mkAuthHandler (const (pure 1))) :. EmptyContext
 
@@ -83,20 +78,29 @@ main = do
   mgr <-
     HTTPClient.newManager $
     HTTPClient.defaultManagerSettings {HTTPClient.managerConnCount = 30}
-  let application = serveWithContext api auth (completeServer env mgr)
+  let hoisted :: ServerT API Servant.Handler
+      hoisted =
+        (hoistServerWithContext
+           (Proxy :: Proxy API)
+           (Proxy :: Proxy '[ UserId])
+           (nt env)
+           (completeServer env mgr))
+  let application = serveWithContext api auth hoisted
   let settings = W.defaultSettings
   W.runSettings settings application
 
-srvStatic :: StaticAPI AsServer
+srvStatic :: StaticAPI (AsServerT AppM)
 srvStatic = StaticAPI {static = serveDirectoryWebApp "."}
 
--- this thing is the most problematic to translate into new servant
-
-completeServer :: Env -> Manager -> Server API
+completeServer :: Env -> Manager -> ServerT API AppM
 completeServer env mgr =
-  handlerServer env :<|> toServant srvStatic :<|>
-  swaggerSchemaUIServer swaggerDoc :<|>
-  Tagged (legacy mgr)
+  let swag =
+        hoistServer
+          (Proxy :: Proxy Swag)
+          ((\h -> ReaderT (\e -> h)) :: Handler x -> AppM x)
+          (swaggerSchemaUIServer swaggerDoc)
+   in genericServerT (handlerServer env) :<|> genericServerT srvStatic :<|> swag :<|>
+      Tagged (legacy mgr)
 
 swaggerDoc :: Swagger
 swaggerDoc = toSwagger publicApi
@@ -105,12 +109,8 @@ publicApi :: Proxy (ToServantApi AdServerAPI)
 publicApi = Proxy
 
 -- enter is deprecated
-
-handlerServer :: Env -> ToServantApi AdServerAPI
-handlerServer env = enter appToHandler (toServant server)
-  where
-    appToHandler :: AppM :~> Handler
-    appToHandler = runReaderTNat env
+handlerServer :: Env -> AdServerAPI (AsServerT AppM)
+handlerServer env = server
 
 data LegacyRoute =
   LegacyRoute Manager
